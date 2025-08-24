@@ -11,8 +11,14 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+
+    # <<< ใส่ env ระดับ job ให้ทุก step เห็น >>>
+    env:
+      YT_API_KEY: ${{ secrets.YT_API_KEY }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -23,9 +29,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # <<< step ตรวจว่า env ถูกส่งมาจริง >>>
+      - name: Check API key present
+        run: |
+          if [ -z "$YT_API_KEY" ]; then
+            echo "YT_API_KEY missing"; exit 1
+          else
+            echo "YT_API_KEY is set (len ${#YT_API_KEY})"
+          fi
+
       - name: Run pipeline (yesterday, TH)
-        env:
-          YT_API_KEY: ${{ secrets.YT_API_KEY }}
         run: |
           export TZ=Asia/Bangkok
           PYDATE=$(date -d 'yesterday' +%Y-%m-%d)
