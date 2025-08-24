@@ -1,0 +1,75 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.064,
+          13.814
+        ]
+      },
+      "properties": {
+        "name": "สระแก้ว",
+        "n_comments": 1194
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.493,
+          14.882
+        ]
+      },
+      "properties": {
+        "name": "สุรินทร์",
+        "n_comments": 624
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.8406,
+          19.9105
+        ]
+      },
+      "properties": {
+        "name": "เชียงราย",
+        "n_comments": 371
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          100.773,
+          18.7757
+        ]
+      },
+      "properties": {
+        "name": "น่าน",
+        "n_comments": 215
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.7236,
+          16.5453
+        ]
+      },
+      "properties": {
+        "name": "มุกดาหาร",
+        "n_comments": 40
+      }
+    }
+  ]
+}

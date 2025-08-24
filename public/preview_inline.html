@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Sentimental Map (Inline Preview)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    html, body { margin:0; padding:0; }
+    #map { width: 100%; height: 80vh; border-top: 1px solid #ddd; }
+    .bar { padding:10px; font:14px/1.4 system-ui, -apple-system, 'Noto Sans Thai', sans-serif; }
+  </style>
+</head>
+<body>
+  <div class="bar"><b>Sentimental Map</b> — 2025-08-23 · total 7,190 comments</div>
+  <div id="map"></div>
+
+  <script>
+    const DAILY  = {"date": "2025-08-23", "total_comments": 7190, "provinces": [{"province": "ไม่ทราบจังหวัด", "n_comments": 4746}, {"province": "สระแก้ว", "n_comments": 1194}, {"province": "สุรินทร์", "n_comments": 624}, {"province": "เชียงราย", "n_comments": 371}, {"province": "น่าน", "n_comments": 215}, {"province": "มุกดาหาร", "n_comments": 40}]};
+    const POINTS = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [102.064, 13.814]}, "properties": {"name": "สระแก้ว", "n_comments": 1194}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [103.493, 14.882]}, "properties": {"name": "สุรินทร์", "n_comments": 624}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [99.8406, 19.9105]}, "properties": {"name": "เชียงราย", "n_comments": 371}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [100.773, 18.7757]}, "properties": {"name": "น่าน", "n_comments": 215}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [104.7236, 16.5453]}, "properties": {"name": "มุกดาหาร", "n_comments": 40}}]};
+
+    function colorScale(values){
+      values = values.filter(v=>v>0).sort((a,b)=>a-b);
+      const bins = values.length ? [
+        values[Math.floor(values.length*0.20)],
+        values[Math.floor(values.length*0.40)],
+        values[Math.floor(values.length*0.60)],
+        values[Math.floor(values.length*0.80)],
+        values[values.length-1]
+      ] : [1,5,10,50,100];
+      function color(n){
+        const c=["#f7fbff","#deebf7","#c6dbef","#9ecae1","#6baed6","#4292c6","#2171b5","#084594"];
+        if(n<=0) return "#f0f0f0";
+        if(n<=bins[0]) return c[2];
+        if(n<=bins[1]) return c[3];
+        if(n<=bins[2]) return c[4];
+        if(n<=bins[3]) return c[5];
+        return c[6];
+      }
+      return {bins, color};
+    }
+  </script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const counts = {};
+    (DAILY.provinces||[]).forEach(r=> counts[(r.province||"").replace(/\s+/g,"")] = r.n_comments||0);
+    const scale = colorScale(Object.values(counts));
+    const map = L.map('map', { preferCanvas:true }).setView([15.87,100.99], 6);
+
+    // OSM tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'&copy; OpenStreetMap' }).addTo(map);
+
+    // force reflow in Colab iframe
+    setTimeout(()=> map.invalidateSize(), 150);
+
+    // draw bubbles
+    const feats = (POINTS.features||[]);
+    const maxN = feats.reduce((m,f)=>Math.max(m,(f.properties&&f.properties.n_comments)||0),1);
+    feats.forEach(f=>{
+      const n=(f.properties&&f.properties.n_comments)||0;
+      const lat=f.geometry.coordinates[1], lon=f.geometry.coordinates[0];
+      const r=6 + Math.sqrt(n/maxN)*28;
+      const circle = L.circleMarker([lat,lon], {radius:r, color:"#333", weight:1, fillColor:scale.color(n), fillOpacity:0.88});
+      const name=(f.properties&&f.properties.name)||"ไม่ทราบจังหวัด";
+      circle.bindPopup(`<b>${name}</b><br/>${DAILY.date}<br/>คอมเมนต์: ${n.toLocaleString()}`);
+      circle.addTo(map);
+    });
+  </script>
+</body>
+</html>

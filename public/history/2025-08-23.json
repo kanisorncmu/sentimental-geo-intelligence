@@ -1,0 +1,30 @@
+{
+  "date": "2025-08-23",
+  "total_comments": 7190,
+  "provinces": [
+    {
+      "province": "ไม่ทราบจังหวัด",
+      "n_comments": 4746
+    },
+    {
+      "province": "สระแก้ว",
+      "n_comments": 1194
+    },
+    {
+      "province": "สุรินทร์",
+      "n_comments": 624
+    },
+    {
+      "province": "เชียงราย",
+      "n_comments": 371
+    },
+    {
+      "province": "น่าน",
+      "n_comments": 215
+    },
+    {
+      "province": "มุกดาหาร",
+      "n_comments": 40
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Sentimental Map (Daily)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    * { box-sizing: border-box; }
+    .bar { position: absolute; top:10px; left:10px; z-index:999; display:flex; gap:8px; flex-wrap:wrap; }
+    .card { background: rgba(255,255,255,.95); padding:8px 10px; border-radius:6px; box-shadow: 0 1px 3px rgba(0,0,0,.1); font: 14px/1.4 system-ui, -apple-system, 'Noto Sans Thai', sans-serif; }
+    .title b { font-size: 16px; display:block; margin-bottom:2px; }
+    .legend .row { display:flex; align-items:center; gap:6px; margin:2px 0; }
+    .legend i { width:12px; height:12px; display:inline-block; border:1px solid #888; }
+    input[type="search"] { width: 220px; padding:6px 8px; border:1px solid #ccc; border-radius:4px; }
+    .note { color:#666; font-size:12px; }
+  </style>
+</head>
+<body>
+<div class="bar">
+  <div class="card title">
+    <b>Sentimental Map (Daily)</b>
+    <div><span id="datespan"></span> — <span id="totalspan"></span> comments</div>
+    <div class="note">* สี/ขนาดอิงจำนวนคอมเมนต์ต่อจังหวัดในวันนั้น</div>
+  </div>
+  <div class="card">
+    <div>ค้นหาจังหวัด</div>
+    <input type="search" id="search" placeholder="พิมพ์ชื่อจังหวัด... เช่น สุรินทร์">
+  </div>
+  <div class="card legend" id="legend"></div>
+</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+async function getJSON(p){ const r=await fetch(p); if(!r.ok) throw new Error("fetch "+p+" failed"); return r.json(); }
+function normalizeName(s){ if(!s) return ""; s=s.replace(/\s+/g,"").replace("กรุงเทพฯ","กรุงเทพมหานคร").replace(/[()（）.]/g,""); return s; }
+function pickName(props){ const keys=["NAME_TH","name_th","NAME","name","PROV_NAMT","PROV_NAME_T","prov_name","prov_namt"]; for (const k of keys){ if (props && props[k]) return props[k]; } return "ไม่ทราบชื่อจังหวัด"; }
+function colorScaleFactory(values){
+  values = values.filter(v=>v>0).sort((a,b)=>a-b);
+  const bins = values.length ? [
+    values[Math.floor(values.length*0.20)],
+    values[Math.floor(values.length*0.40)],
+    values[Math.floor(values.length*0.60)],
+    values[Math.floor(values.length*0.80)],
+    values[values.length-1]
+  ] : [1,5,10,50,100];
+  const colors=["#f7fbff","#deebf7","#c6dbef","#9ecae1","#6baed6","#4292c6","#2171b5","#084594"];
+  function color(n){
+    if(n<=0) return "#f0f0f0";
+    if(n<=bins[0]) return colors[2];
+    if(n<=bins[1]) return colors[3];
+    if(n<=bins[2]) return colors[4];
+    if(n<=bins[3]) return colors[5];
+    return colors[6];
+  }
+  return {bins, color};
+}
+
+(async () => {
+  const daily = await getJSON("./daily.json");
+  document.getElementById("datespan").textContent = daily.date;
+  document.getElementById("totalspan").textContent = daily.total_comments;
+
+  const counts = {}; daily.provinces.forEach(r => counts[normalizeName(r.province)] = r.n_comments||0);
+  const scale = colorScaleFactory(Object.values(counts));
+
+  const map = L.map("map",{preferCanvas:true}).setView([15.87,100.99],6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+
+  // legend
+  const leg=document.getElementById("legend"); leg.innerHTML="<b>จำนวนคอมเมนต์</b>";
+  const steps=[0,...scale.bins];
+  for(let i=0;i<steps.length-1;i++){
+    const a=steps[i], b=steps[i+1]; const mid=(a+b)/2||b; const c=scale.color(mid);
+    const row=document.createElement("div"); row.className="row"; row.innerHTML=`<i style="background:${c}"></i> ${a} – ${b}`; leg.appendChild(row);
+  }
+  { const c=scale.color(scale.bins[scale.bins.length-1]+1); const row=document.createElement("div"); row.className="row"; row.innerHTML=`<i style="background:${c}"></i> > ${scale.bins[scale.bins.length-1]}`; leg.appendChild(row); }
+
+  // choropleth if geojson exists
+  let choroplethOk=false;
+  try{
+    const gj = await getJSON("./geo/provinces-th.geojson");
+    if (!gj || !gj.features || !gj.features.length) throw new Error("empty geojson");
+    function style(f){ const raw=pickName(f.properties); const name=normalizeName(raw); const n=counts[name]||0; return {weight:1,color:"#666",fillOpacity:0.88,fillColor:scale.color(n)}; }
+    function onEachFeature(f,layer){ const raw=pickName(f.properties); const name=normalizeName(raw); const n=counts[name]||0; layer.bindPopup(`<b>${raw}</b><br/>${daily.date}<br/>คอมเมนต์: ${n}`); }
+    L.geoJSON(gj,{style,onEachFeature}).addTo(map);
+    choroplethOk=true;
+  }catch(e){ console.warn("Choropleth failed → fallback bubbles:", e); }
+
+  // fallback bubbles
+  if(!choroplethOk){
+    const pts = await getJSON("./geo/province_points.json");
+    const maxN = pts.features.reduce((m,f)=>Math.max(m,f.properties.n_comments||0),1);
+    pts.features.forEach(f=>{
+      const n=f.properties.n_comments||0, lat=f.geometry.coordinates[1], lon=f.geometry.coordinates[0];
+      const r=6+Math.sqrt(n/maxN)*28; const circle=L.circleMarker([lat,lon],{radius:r,color:"#333",weight:1,fillColor:scale.color(n),fillOpacity:0.88});
+      circle.bindPopup(`<b>${f.properties.name}</b><br/>${daily.date}<br/>คอมเมนต์: ${n}`); circle.addTo(map);
+    });
+  }
+
+  // search จังหวัด
+  const search=document.getElementById("search");
+  function normalizeQuery(q){ return normalizeName(q.trim()); }
+  search.addEventListener("change", e=>{
+    const q=normalizeQuery(e.target.value); if(!q) return;
+    let found=null;
+    map.eachLayer(l=>{
+      if(l.feature && l.feature.properties){
+        const raw=pickName(l.feature.properties), name=normalizeName(raw);
+        if(name===q){ found=l; }
+      }
+    });
+    if(found){ map.fitBounds(found.getBounds().pad(0.5)); found.openPopup(); return; }
+    map.eachLayer(l=>{
+      if(l.getLatLng && l.getPopup){
+        const html=l.getPopup()?.getContent()||"";
+        if(html.includes(e.target.value)){ found=l; }
+      }
+    });
+    if(found){ map.setView(found.getLatLng(), 8); found.openPopup(); }
+  });
+})();
+</script>
+</body>
+</html>
